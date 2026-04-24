@@ -4,7 +4,7 @@ import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, Validatio
 import { Router } from '@angular/router';
 import { CardBrandInfo, CardBrandService, CepService, PaymentService, PaymentValidationService } from '../../services';
 import { PaymentData, PaymentMethod, PaymentError } from '../../models';
-import { ErrorMessageComponent, LoadingSpinnerComponent } from '../../shared';
+import { LoadingSpinnerComponent } from '../../shared';
 
 @Component({
   selector: 'app-payment-form',
@@ -12,7 +12,6 @@ import { ErrorMessageComponent, LoadingSpinnerComponent } from '../../shared';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    ErrorMessageComponent,
     LoadingSpinnerComponent
   ],
   templateUrl: './payment-form.component.html',
@@ -23,6 +22,8 @@ export class PaymentFormComponent implements OnInit {
   isLoading = false;
   validationErrors: PaymentError[] = [];
   successMessage = '';
+  showErrorModal = false;
+  errorModalMessage = 'Nao foi possivel concluir o pagamento agora. Tente novamente mais tarde.';
   selectedPaymentMethod: PaymentMethod | null = null;
   isBrandLookupLoading = false;
   isCepLookupLoading = false;
@@ -402,7 +403,11 @@ export class PaymentFormComponent implements OnInit {
     // Validate payment data
     const validationResult = this.validationService.validatePaymentData(paymentData);
     if (!validationResult.isValid) {
-      this.validationErrors = validationResult.errors;
+      const firstErrorMessage = validationResult.errors[0]?.message ||
+        'Nao foi possivel concluir o pagamento agora. Tente novamente mais tarde.';
+
+      this.validationErrors = [];
+      this.openErrorModal(firstErrorMessage);
       void this.paymentService.persistValidationFailure(paymentData, validationResult.errors);
       return;
     }
@@ -416,12 +421,14 @@ export class PaymentFormComponent implements OnInit {
       next: (response) => {
         this.isLoading = false;
         if (response.success) {
+          this.closeErrorModal();
           this.successMessage = `Pagamento realizado com sucesso! ID: ${response.transactionId}`;
           setTimeout(() => {
             this.router.navigate(['/confirmation', { transactionId: response.transactionId }]);
           }, 2000);
         } else {
-          this.validationErrors = response.errors || [];
+          this.validationErrors = [];
+          this.openErrorModal('Nao foi possivel concluir o pagamento agora. Tente novamente mais tarde.');
         }
       },
       error: (error) => {
@@ -433,16 +440,20 @@ export class PaymentFormComponent implements OnInit {
             code: 'PAYMENT_ERROR'
           }
         ]);
-        this.validationErrors = [
-          {
-            field: 'payment',
-            message: 'Erro ao processar pagamento. Tente novamente.',
-            code: 'PAYMENT_ERROR'
-          }
-        ];
+        this.validationErrors = [];
+        this.openErrorModal('Nao foi possivel concluir o pagamento agora. Tente novamente mais tarde.');
         console.error('Payment error:', error);
       }
     });
+  }
+
+  openErrorModal(message: string): void {
+    this.errorModalMessage = message;
+    this.showErrorModal = true;
+  }
+
+  closeErrorModal(): void {
+    this.showErrorModal = false;
   }
 
   private markFormGroupTouched(formGroup: FormGroup): void {
