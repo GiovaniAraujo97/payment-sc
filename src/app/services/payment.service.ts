@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, delay, tap } from 'rxjs';
+import { Observable, delay, tap, timeout } from 'rxjs';
 import { PaymentData, PaymentError, PaymentResponse } from '../models';
 import { environment } from '../../environments/environment';
 import { SupabaseClientService } from './supabase-client.service';
@@ -31,6 +31,7 @@ export class PaymentService {
       paymentData,
       { headers }
     ).pipe(
+      timeout(environment.api.timeout),
       tap((response) => {
         if (!response?.success) {
           return;
@@ -49,6 +50,8 @@ export class PaymentService {
     return this.http.post<PaymentResponse>(
       `${this.apiUrl}/validate`,
       paymentData
+    ).pipe(
+      timeout(environment.api.timeout)
     );
   }
 
@@ -58,6 +61,8 @@ export class PaymentService {
   getPaymentStatus(transactionId: string): Observable<PaymentResponse> {
     return this.http.get<PaymentResponse>(
       `${this.apiUrl}/${transactionId}/status`
+    ).pipe(
+      timeout(environment.api.timeout)
     );
   }
 
@@ -65,7 +70,9 @@ export class PaymentService {
    * Get available payment methods
    */
   getPaymentMethods(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/methods`);
+    return this.http.get(`${this.apiUrl}/methods`).pipe(
+      timeout(environment.api.timeout)
+    );
   }
 
   async persistValidationFailure(
