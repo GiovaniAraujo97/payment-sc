@@ -1,59 +1,101 @@
-# PaymentSc
+# Payment SC
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.15.
+Checkout web app em Angular com:
 
-## Development server
+- pagamento por cartao (credito/debito)
+- validacoes de formulario
+- deteccao de bandeira de cartao
+- busca de endereco por CEP (ViaCEP)
+- persistencia no Supabase (incluindo tentativas com erro)
 
-To start a local development server, run:
+## Stack
 
-```bash
-ng serve
-```
+- Angular 19 (standalone)
+- RxJS + Reactive Forms
+- Supabase JS (`@supabase/supabase-js`)
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Como rodar localmente
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+1. Instale dependencias:
 
 ```bash
-ng generate --help
+npm install
 ```
 
-## Building
-
-To build the project run:
+2. Rode o projeto:
 
 ```bash
-ng build
+npm start
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+3. Abra:
 
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
+```text
+http://localhost:4200
 ```
 
-## Running end-to-end tests
+## Supabase (obrigatorio para ver os dados no banco)
 
-For end-to-end (e2e) testing, run:
+Mesmo com o frontend funcionando, as colunas completas so aparecem no banco depois da migration SQL.
 
-```bash
-ng e2e
-```
+1. Abra o SQL Editor no Supabase.
+2. Execute o script:
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+- [supabase/sql/001_init_payments.sql](supabase/sql/001_init_payments.sql)
 
-## Additional Resources
+3. Confirme que a tabela usada pelo ambiente existe.
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Observacao:
+
+- O ambiente atual esta configurado para `pagamentos`.
+- O servico possui fallback para `payments` quando necessario.
+
+## Configuracao de ambiente
+
+Confira:
+
+- [src/environments/environment.ts](src/environments/environment.ts)
+- [src/environments/environment.prod.ts](src/environments/environment.prod.ts)
+
+Campos principais:
+
+- `supabase.url`
+- `supabase.anonKey`
+- `supabase.paymentsTable`
+- `features.useSupabase`
+
+## O que e salvo no Supabase
+
+No envio (inclusive em falha de validacao/processamento), o app persiste dados legiveis do formulario, por exemplo:
+
+- valor, moeda, descricao
+- metodo de pagamento (id, nome, tipo)
+- cartao (bandeira, numero, ultimos 4, titular, validade, cvv, parcelas)
+- endereco de cobranca completo
+- status da tentativa (`pending`, `failed`, etc.)
+- `validation_errors` e `metadata.formSnapshot`
+
+## Fluxos de validacao
+
+- Se o formulario estiver invalido: nao envia processamento.
+- Se houver erro de validacao de negocio (ex.: numero de cartao invalido): exibe erro e persiste tentativa com `status = failed`.
+- Se houver erro na chamada de processamento: exibe erro e persiste tentativa com `status = failed`.
+
+## Scripts uteis
+
+- `npm start`: sobe app em desenvolvimento
+- `npm test`: testes unitarios
+- `npm run build`: build de producao
+
+## Estrutura principal
+
+- [src/app/components/payment-form/payment-form.component.ts](src/app/components/payment-form/payment-form.component.ts)
+- [src/app/services/payment.service.ts](src/app/services/payment.service.ts)
+- [src/app/services/supabase-payments.service.ts](src/app/services/supabase-payments.service.ts)
+- [src/app/services/card-brand.service.ts](src/app/services/card-brand.service.ts)
+- [src/app/services/cep.service.ts](src/app/services/cep.service.ts)
+
+## Seguranca
+
+Este projeto foi ajustado para persistir dados sensiveis de cartao por requisito funcional.
+Em ambiente real, evite armazenar PAN completo e CVV em texto aberto.

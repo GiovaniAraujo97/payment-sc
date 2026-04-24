@@ -26,12 +26,12 @@ export const environment = {
 
   // Supabase Configuration
   supabase: {
-    // Ex: https://your-project-id.supabase.co
-    url: '',
-    // Ex: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-    anonKey: '',
+    // Project URL (Supabase)
+    url: 'https://afjsivrkogdzrvbynyta.supabase.co',
+    // Public publishable key (safe for frontend when RLS is enabled)
+    anonKey: 'sb_publishable_24amyuSCOz74c-1Vjg-L-A_GzRXk4pj',
     // Target table for payment records
-    paymentsTable: 'payments',
+    paymentsTable: 'pagamentos',
   },
 
   // Payment Configuration
@@ -120,7 +120,7 @@ export const environment = {
     multiplePaymentMethods: true,
 
     // Enable Supabase persistence for payments
-    useSupabase: false,
+    useSupabase: true,
   }
 };
 

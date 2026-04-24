@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, delay, tap } from 'rxjs';
-import { PaymentData, PaymentResponse } from '../models';
+import { PaymentData, PaymentError, PaymentResponse } from '../models';
 import { environment } from '../../environments/environment';
 import { SupabaseClientService } from './supabase-client.service';
 import { SupabasePaymentsService } from './supabase-payments.service';
@@ -66,6 +66,37 @@ export class PaymentService {
    */
   getPaymentMethods(): Observable<any> {
     return this.http.get(`${this.apiUrl}/methods`);
+  }
+
+  async persistValidationFailure(
+    paymentData: PaymentData,
+    errors: PaymentError[]
+  ): Promise<void> {
+    if (!environment.features.useSupabase) {
+      return;
+    }
+
+    if (!this.supabaseClientService.isConfigured()) {
+      console.warn('Supabase ativado por feature flag, mas sem configuracao de URL/anonKey.');
+      return;
+    }
+
+    try {
+      await this.supabasePaymentsService.createPaymentRecord(
+        {
+          ...paymentData,
+          status: 'failed',
+          metadata: {
+            ...(paymentData.metadata || {}),
+            source: 'frontend-validation',
+            validationErrors: errors,
+          },
+        },
+        undefined
+      );
+    } catch (error) {
+      console.error('Falha ao persistir tentativa com erro de validacao no Supabase:', error);
+    }
   }
 
   private async persistPaymentToSupabaseIfEnabled(

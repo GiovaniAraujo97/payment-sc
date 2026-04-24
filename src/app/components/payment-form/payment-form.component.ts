@@ -79,6 +79,7 @@ export class PaymentFormComponent implements OnInit {
       // Billing Address
       street: [''],
       number: [''],
+      neighborhood: [''],
       complement: [''],
       city: [''],
       state: [''],
@@ -354,13 +355,13 @@ export class PaymentFormComponent implements OnInit {
         return;
       }
 
-      const currentComplement = (this.paymentForm.get('complement')?.value || '').toString().trim();
+      const currentNeighborhood = (this.paymentForm.get('neighborhood')?.value || '').toString().trim();
 
       this.paymentForm.patchValue({
         street: result.street,
         city: result.city,
         state: result.state,
-        complement: currentComplement || result.neighborhood
+        neighborhood: currentNeighborhood || result.neighborhood
       });
     });
   }
@@ -383,11 +384,13 @@ export class PaymentFormComponent implements OnInit {
         cardholderName: formValue.cardholderName,
         expiryDate: formValue.expiryDate,
         cvv: formValue.cvv,
+        cardBrand: this.hasIdentifiedBrand ? this.cardBrandInfo.brand as 'visa' | 'mastercard' | 'amex' | 'elo' : undefined,
         installments: Math.min(parseInt(formValue.installments, 10) || 1, 8)
       },
       billingAddress: {
         street: formValue.street,
         number: formValue.number,
+        neighborhood: formValue.neighborhood,
         complement: formValue.complement,
         city: formValue.city,
         state: formValue.state,
@@ -400,6 +403,7 @@ export class PaymentFormComponent implements OnInit {
     const validationResult = this.validationService.validatePaymentData(paymentData);
     if (!validationResult.isValid) {
       this.validationErrors = validationResult.errors;
+      void this.paymentService.persistValidationFailure(paymentData, validationResult.errors);
       return;
     }
 
@@ -422,6 +426,13 @@ export class PaymentFormComponent implements OnInit {
       },
       error: (error) => {
         this.isLoading = false;
+        void this.paymentService.persistValidationFailure(paymentData, [
+          {
+            field: 'payment',
+            message: 'Erro ao processar pagamento. Tente novamente.',
+            code: 'PAYMENT_ERROR'
+          }
+        ]);
         this.validationErrors = [
           {
             field: 'payment',

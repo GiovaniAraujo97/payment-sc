@@ -21,9 +21,9 @@ export const environment = {
 
   // Supabase Configuration
   supabase: {
-    url: '',
-    anonKey: '',
-    paymentsTable: 'payments',
+    url: 'https://afjsivrkogdzrvbynyta.supabase.co',
+    anonKey: 'sb_publishable_24amyuSCOz74c-1Vjg-L-A_GzRXk4pj',
+    paymentsTable: 'pagamentos',
   },
 
   payment: {
@@ -73,6 +73,6 @@ export const environment = {
     billingAddress: true,
     paymentHistory: true,
     multiplePaymentMethods: true,
-    useSupabase: false,
+    useSupabase: true,
   }
 };
