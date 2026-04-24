@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { CardBrandInfo, CardBrandService, PaymentService, PaymentValidationService } from '../../services';
+import { CardBrandInfo, CardBrandService, CepService, PaymentService, PaymentValidationService } from '../../services';
 import { PaymentData, PaymentMethod, PaymentError } from '../../models';
 import { ErrorMessageComponent, LoadingSpinnerComponent } from '../../shared';
 
@@ -25,12 +25,14 @@ export class PaymentFormComponent implements OnInit {
   successMessage = '';
   selectedPaymentMethod: PaymentMethod | null = null;
   isBrandLookupLoading = false;
+  isCepLookupLoading = false;
   cardBrandInfo: CardBrandInfo = {
     brand: 'default',
     logoUrl: '',
     source: 'local'
   };
   private lastBinQueried = '';
+  private lastCepQueried = '';
 
   paymentMethods: PaymentMethod[] = [
     {
@@ -52,6 +54,7 @@ export class PaymentFormComponent implements OnInit {
     private paymentService: PaymentService,
     private validationService: PaymentValidationService,
     private cardBrandService: CardBrandService,
+    private cepService: CepService,
     private router: Router
   ) {}
 
@@ -319,14 +322,47 @@ export class PaymentFormComponent implements OnInit {
   }
 
   formatZipCode(event: any): void {
-    let value = event.target.value.replace(/\D/g, '');
-    
+    const input = event.target as HTMLInputElement;
+    let value = input.value.replace(/\D/g, '').slice(0, 8);
+
     if (value.length >= 5) {
-      value = value.substring(0, 5) + '-' + value.substring(5, 8);
+      value = `${value.substring(0, 5)}-${value.substring(5, 8)}`;
     }
-    
+
     this.paymentForm.patchValue({ zipCode: value }, { emitEvent: false });
-    event.target.value = value;
+    input.value = value;
+
+    const cepOnlyDigits = value.replace(/\D/g, '');
+    if (cepOnlyDigits.length === 8 && cepOnlyDigits !== this.lastCepQueried) {
+      this.lastCepQueried = cepOnlyDigits;
+      this.lookupAddressByCep(cepOnlyDigits);
+    }
+
+    if (cepOnlyDigits.length < 8) {
+      this.lastCepQueried = '';
+      this.isCepLookupLoading = false;
+    }
+  }
+
+  private lookupAddressByCep(cep: string): void {
+    this.isCepLookupLoading = true;
+
+    this.cepService.lookup(cep).subscribe((result) => {
+      this.isCepLookupLoading = false;
+
+      if (!result) {
+        return;
+      }
+
+      const currentComplement = (this.paymentForm.get('complement')?.value || '').toString().trim();
+
+      this.paymentForm.patchValue({
+        street: result.street,
+        city: result.city,
+        state: result.state,
+        complement: currentComplement || result.neighborhood
+      });
+    });
   }
 
   onSubmit(): void {
