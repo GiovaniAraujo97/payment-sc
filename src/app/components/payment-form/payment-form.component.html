@@ -1,0 +1,306 @@
+<div class="payment-container">
+  <div class="payment-card">
+    <header class="brand-header">
+      <img src="/picpay.png" alt="PicPay" class="brand-top-logo" />
+    </header>
+
+    <app-loading-spinner 
+      [isLoading]="isLoading" 
+      message="Processando seu pagamento...">
+    </app-loading-spinner>
+
+    <!-- Success Message -->
+    <div *ngIf="successMessage" class="success-message">
+      <span class="success-icon">✓</span>
+      <span>{{ successMessage }}</span>
+    </div>
+
+    <!-- Validation Errors -->
+    <app-error-message 
+      [errors]="validationErrors"
+      title="Erro ao processar pagamento">
+    </app-error-message>
+
+    <form [formGroup]="paymentForm" (ngSubmit)="onSubmit()">
+      <!-- Basic Payment Information -->
+      <section class="form-section">
+        <h2 class="section-title">Informações do Pagamento</h2>
+        
+        <div class="form-group">
+          <label for="amount" class="form-label">Valor *</label>
+          <div class="amount-input">
+            <input
+              type="text"
+              id="amount"
+              formControlName="amount"
+              placeholder="0,00"
+              (input)="formatCurrencyInput($event)"
+              class="form-control"
+              [class.is-invalid]="paymentForm.get('amount')?.invalid && paymentForm.get('amount')?.touched"
+            />
+            <span class="currency-select">
+              <select formControlName="currency" class="form-control">
+                <option value="BRL">BRL</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </span>
+          </div>
+          <small *ngIf="paymentForm.get('amount')?.invalid && paymentForm.get('amount')?.touched" 
+                 class="error-text">O valor é obrigatório</small>
+        </div>
+
+        <div class="form-group">
+          <label for="description" class="form-label">Descrição *</label>
+          <textarea
+            id="description"
+            formControlName="description"
+            placeholder="Descreva o item ou serviço"
+            rows="3"
+            class="form-control"
+            [class.is-invalid]="paymentForm.get('description')?.invalid && paymentForm.get('description')?.touched"
+          ></textarea>
+        </div>
+      </section>
+
+      <!-- Payment Method Selection -->
+      <section class="form-section">
+        <h2 class="section-title">Método de Pagamento *</h2>
+        
+        <div class="payment-methods">
+          <label *ngFor="let method of paymentMethods" class="payment-method-option">
+            <input
+              type="radio"
+              [value]="method.id"
+              formControlName="paymentMethodId"
+              (change)="selectPaymentMethod(method)"
+              class="radio-input"
+            />
+            <span class="radio-custom"></span>
+            <span class="method-icon">{{ method.icon }}</span>
+            <span class="method-name">{{ method.name }}</span>
+          </label>
+        </div>
+
+        <small *ngIf="!selectedPaymentMethod && paymentForm.get('paymentMethodId')?.touched" 
+               class="error-text">Selecione um método de pagamento</small>
+      </section>
+
+      <!-- Card Details (for card payments) -->
+      <section *ngIf="selectedPaymentMethod?.type === 'credit_card' || selectedPaymentMethod?.type === 'debit_card'" 
+               class="form-section">
+        <h2 class="section-title">Dados do Cartão</h2>
+
+        <div class="card-preview" [ngClass]="cardVisualClass">
+          <div class="card-preview-top">
+            <span class="chip"></span>
+            <img
+              *ngIf="hasIdentifiedBrand && cardBrandInfo.logoUrl"
+              class="brand-logo"
+              [src]="cardBrandInfo.logoUrl"
+              [alt]="cardBrandLabel"
+              (error)="onBrandLogoError()"
+              referrerpolicy="no-referrer"
+            />
+            <span *ngIf="hasIdentifiedBrand && !cardBrandInfo.logoUrl" class="brand-badge">{{ cardBrandLabel }}</span>
+          </div>
+
+          <div class="card-number">{{ cardPreviewNumber }}</div>
+
+          <div class="card-preview-bottom">
+            <div class="card-holder-block">
+              <small>TITULAR</small>
+              <span>{{ cardPreviewHolder }}</span>
+            </div>
+            <div class="card-expiry-block">
+              <small>VALIDADE</small>
+              <span>{{ cardPreviewExpiry }}</span>
+            </div>
+          </div>
+
+          <small class="brand-status">
+            <span *ngIf="isBrandLookupLoading">Consultando bandeira...</span>
+            <span *ngIf="!isBrandLookupLoading && hasIdentifiedBrand">{{ cardBrandLabel }}</span>
+          </small>
+        </div>
+        
+        <div class="form-group">
+          <label for="cardNumber" class="form-label">Número do Cartão *</label>
+          <input
+            type="text"
+            id="cardNumber"
+            formControlName="cardNumber"
+            placeholder="0000 0000 0000 0000"
+            maxlength="19"
+            (input)="formatCardNumber($event)"
+            class="form-control"
+            [class.is-invalid]="paymentForm.get('cardNumber')?.invalid && paymentForm.get('cardNumber')?.touched"
+          />
+          <small *ngIf="paymentForm.get('cardNumber')?.invalid && paymentForm.get('cardNumber')?.touched" 
+                 class="error-text">Número do cartão é obrigatório</small>
+        </div>
+
+        <div class="form-group">
+          <label for="cardholderName" class="form-label">Nome do Titular *</label>
+          <input
+            type="text"
+            id="cardholderName"
+            formControlName="cardholderName"
+            placeholder="Seu Nome"
+            class="form-control"
+            [class.is-invalid]="paymentForm.get('cardholderName')?.invalid && paymentForm.get('cardholderName')?.touched"
+          />
+          <small *ngIf="paymentForm.get('cardholderName')?.invalid && paymentForm.get('cardholderName')?.touched" 
+                 class="error-text">Nome do titular é obrigatório</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expiryDate" class="form-label">Validade *</label>
+            <input
+              type="text"
+              id="expiryDate"
+              formControlName="expiryDate"
+              placeholder="MM/YY"
+              maxlength="5"
+              (input)="formatExpiryDate($event)"
+              class="form-control"
+              [class.is-invalid]="paymentForm.get('expiryDate')?.invalid && paymentForm.get('expiryDate')?.touched"
+            />
+            <small *ngIf="paymentForm.get('expiryDate')?.invalid && paymentForm.get('expiryDate')?.touched" 
+                   class="error-text">Validade deve ser MM/AA, mês até 12 e não pode ser anterior ao mês atual</small>
+          </div>
+
+          <div class="form-group">
+            <label for="cvv" class="form-label">CVV *</label>
+            <input
+              type="text"
+              id="cvv"
+              formControlName="cvv"
+              placeholder="000"
+              maxlength="3"
+              inputmode="numeric"
+              (input)="formatCVV($event)"
+              class="form-control"
+              [class.is-invalid]="paymentForm.get('cvv')?.invalid && paymentForm.get('cvv')?.touched"
+            />
+            <small *ngIf="paymentForm.get('cvv')?.invalid && paymentForm.get('cvv')?.touched" 
+                   class="error-text">CVV deve ter 3 dígitos</small>
+          </div>
+        </div>
+
+        <!-- Installments (only for credit card) -->
+        <div *ngIf="selectedPaymentMethod?.type === 'credit_card'" class="form-group">
+          <label for="installments" class="form-label">Parcelamento</label>
+          <select
+            id="installments"
+            formControlName="installments"
+            class="form-control"
+          >
+            <option *ngFor="let option of getInstallmentOptions()" [value]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Billing Address -->
+      <section class="form-section">
+        <h2 class="section-title">Endereço de Cobrança</h2>
+        
+        <div class="form-group">
+          <label for="street" class="form-label">Rua</label>
+          <input
+            type="text"
+            id="street"
+            formControlName="street"
+            placeholder="Nome da rua"
+            class="form-control"
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="number" class="form-label">Número</label>
+            <input
+              type="text"
+              id="number"
+              formControlName="number"
+              placeholder="Número"
+              class="form-control"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="complement" class="form-label">Complemento</label>
+            <input
+              type="text"
+              id="complement"
+              formControlName="complement"
+              placeholder="Apto, sala, etc"
+              class="form-control"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="city" class="form-label">Cidade</label>
+            <input
+              type="text"
+              id="city"
+              formControlName="city"
+              placeholder="São Paulo"
+              class="form-control"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="state" class="form-label">Estado</label>
+            <input
+              type="text"
+              id="state"
+              formControlName="state"
+              placeholder="SP"
+              maxlength="2"
+              class="form-control"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="zipCode" class="form-label">CEP</label>
+          <input
+            type="text"
+            id="zipCode"
+            formControlName="zipCode"
+            placeholder="00000-000"
+            maxlength="9"
+            (input)="formatZipCode($event)"
+            class="form-control"
+          />
+        </div>
+      </section>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="resetForm()"
+          [disabled]="isLoading"
+        >
+          Limpar
+        </button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="isLoading || !paymentForm.valid"
+        >
+          <span *ngIf="!isLoading">Processar Pagamento</span>
+          <span *ngIf="isLoading">Processando...</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
